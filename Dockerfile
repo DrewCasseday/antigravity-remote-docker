@@ -185,27 +185,23 @@ WORKDIR /home/${USER}
 ENTRYPOINT ["/opt/scripts/entrypoint.sh"]
 CMD ["supervisord"]
 
-# --- CUSTOM BROWSER & IDE PATCHES ---
-
+# --- KEYRING & BROWSER PATCHES ---
 USER root
 
-# 1. Update the global Antigravity shortcut to bypass GPU and ignore the keyring
+# 1. Install the system keyring so Antigravity can securely save the token
+RUN apt-get update && apt-get install -y gnome-keyring dbus-x11 libsecret-1-0
+
+# 2. Update the global Antigravity shortcut to bypass GPU and use basic storage
 RUN sed -i 's|^Exec=.*|Exec=/usr/share/antigravity/antigravity --disable-gpu --no-sandbox --password-store=basic %U|g' /usr/share/applications/antigravity.desktop || true
 
-# 2. Create a custom XFCE web helper for Chrome safely using echo
-RUN mkdir -p /usr/share/xfce4/helpers && \
-    echo "[Desktop Entry]" > /usr/share/xfce4/helpers/docker-chrome.desktop && \
-    echo "NoDisplay=true" >> /usr/share/xfce4/helpers/docker-chrome.desktop && \
-    echo "Version=1.0" >> /usr/share/xfce4/helpers/docker-chrome.desktop && \
-    echo "Type=X-XFCE-Helper" >> /usr/share/xfce4/helpers/docker-chrome.desktop && \
-    echo "X-XFCE-Category=WebBrowser" >> /usr/share/xfce4/helpers/docker-chrome.desktop && \
-    echo 'X-XFCE-CommandsWithParameter=google-chrome --disable-gpu --no-sandbox --password-store=basic "%s"' >> /usr/share/xfce4/helpers/docker-chrome.desktop && \
-    echo "Icon=google-chrome" >> /usr/share/xfce4/helpers/docker-chrome.desktop && \
-    echo "Name=DockerChrome" >> /usr/share/xfce4/helpers/docker-chrome.desktop
+# 3. Create a master wrapper for Google Chrome to FORCE flags on every launch
+RUN mv /usr/bin/google-chrome /usr/bin/google-chrome-orig && \
+    echo '#!/bin/bash' > /usr/bin/google-chrome && \
+    echo 'exec /usr/bin/google-chrome-orig --disable-gpu --no-sandbox --password-store=basic "$@"' >> /usr/bin/google-chrome && \
+    chmod +x /usr/bin/google-chrome
 
-# 3. Set the custom helper as the global default browser
-RUN mkdir -p /etc/xdg/xfce4 && \
-    echo "[Configuration]" > /etc/xdg/xfce4/helpers.rc && \
-    echo "WebBrowser=docker-chrome" >> /etc/xdg/xfce4/helpers.rc
+# 4. Link google-chrome-stable directly to our new master wrapper
+RUN rm -f /usr/bin/google-chrome-stable && \
+    ln -s /usr/bin/google-chrome /usr/bin/google-chrome-stable
 
 USER 1000
