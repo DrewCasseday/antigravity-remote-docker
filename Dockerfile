@@ -184,3 +184,16 @@ WORKDIR /home/${USER}
 
 ENTRYPOINT ["/opt/scripts/entrypoint.sh"]
 CMD ["supervisord"]
+
+# --- CUSTOM BROWSER & IDE PATCHES ---
+
+# 1. Update the global Antigravity shortcut to bypass GPU
+RUN sed -i 's|^Exec=.*|Exec=/usr/share/antigravity/antigravity --disable-gpu --no-sandbox %U|g' /usr/share/applications/antigravity.desktop || true
+
+# 2. Create a custom XFCE web helper for Chrome with sandbox flags
+RUN mkdir -p /usr/share/xfce4/helpers && \
+    printf "[Desktop Entry]\nNoDisplay=true\nVersion=1.0\nType=X-XFCE-Helper\nX-XFCE-Category=WebBrowser\nX-XFCE-CommandsWithParameter=google-chrome --disable-gpu --no-sandbox \"%%s\"\nIcon=google-chrome\nName=DockerChrome\n" > /usr/share/xfce4/helpers/docker-chrome.desktop
+
+# 3. Set the custom helper as the global default browser
+RUN mkdir -p /etc/xdg/xfce4 && \
+    printf "[Configuration]\nWebBrowser=docker-chrome\n" > /etc/xdg/xfce4/helpers.rc
