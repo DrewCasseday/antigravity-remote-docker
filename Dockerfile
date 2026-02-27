@@ -185,23 +185,13 @@ WORKDIR /home/${USER}
 ENTRYPOINT ["/opt/scripts/entrypoint.sh"]
 CMD ["supervisord"]
 
-# --- KEYRING & BROWSER PATCHES ---
+# --- BROWSER & IDE PATCHES ---
 USER root
 
-# 1. Install the system keyring so Antigravity can securely save the token
-RUN apt-get update && apt-get install -y gnome-keyring dbus-x11 libsecret-1-0
-
-# 2. Update the global Antigravity shortcut to bypass GPU and use basic storage
+# 1. Update the global Antigravity shortcut to bypass GPU and ignore the keyring
 RUN sed -i 's|^Exec=.*|Exec=/usr/share/antigravity/antigravity --disable-gpu --no-sandbox --password-store=basic %U|g' /usr/share/applications/antigravity.desktop || true
 
-# 3. Create a master wrapper for Google Chrome to FORCE flags on every launch
-RUN mv /usr/bin/google-chrome /usr/bin/google-chrome-orig && \
-    echo '#!/bin/bash' > /usr/bin/google-chrome && \
-    echo 'exec /usr/bin/google-chrome-orig --disable-gpu --no-sandbox --password-store=basic "$@"' >> /usr/bin/google-chrome && \
-    chmod +x /usr/bin/google-chrome
-
-# 4. Link google-chrome-stable directly to our new master wrapper
-RUN rm -f /usr/bin/google-chrome-stable && \
-    ln -s /usr/bin/google-chrome /usr/bin/google-chrome-stable
+# 2. Inject our required Docker flags directly into Chrome's native startup script
+RUN sed -i 's|exec -a "$0" "$HERE/chrome" "$@"|exec -a "$0" "$HERE/chrome" --disable-gpu --no-sandbox --password-store=basic "$@"|g' /opt/google/chrome/google-chrome || true
 
 USER 1000
