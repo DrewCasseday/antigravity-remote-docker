@@ -187,13 +187,27 @@ CMD ["supervisord"]
 
 # --- CUSTOM BROWSER & IDE PATCHES ---
 
+# Switch to root to ensure we have permission to edit system files
+USER root
+
 # 1. Update the global Antigravity shortcut to bypass GPU
 RUN sed -i 's|^Exec=.*|Exec=/usr/share/antigravity/antigravity --disable-gpu --no-sandbox %U|g' /usr/share/applications/antigravity.desktop || true
 
-# 2. Create a custom XFCE web helper for Chrome with sandbox flags
+# 2. Create a custom XFCE web helper for Chrome safely using echo
 RUN mkdir -p /usr/share/xfce4/helpers && \
-    printf "[Desktop Entry]\nNoDisplay=true\nVersion=1.0\nType=X-XFCE-Helper\nX-XFCE-Category=WebBrowser\nX-XFCE-CommandsWithParameter=google-chrome --disable-gpu --no-sandbox \"%%s\"\nIcon=google-chrome\nName=DockerChrome\n" > /usr/share/xfce4/helpers/docker-chrome.desktop
+    echo "[Desktop Entry]" > /usr/share/xfce4/helpers/docker-chrome.desktop && \
+    echo "NoDisplay=true" >> /usr/share/xfce4/helpers/docker-chrome.desktop && \
+    echo "Version=1.0" >> /usr/share/xfce4/helpers/docker-chrome.desktop && \
+    echo "Type=X-XFCE-Helper" >> /usr/share/xfce4/helpers/docker-chrome.desktop && \
+    echo "X-XFCE-Category=WebBrowser" >> /usr/share/xfce4/helpers/docker-chrome.desktop && \
+    echo 'X-XFCE-CommandsWithParameter=google-chrome --disable-gpu --no-sandbox "%s"' >> /usr/share/xfce4/helpers/docker-chrome.desktop && \
+    echo "Icon=google-chrome" >> /usr/share/xfce4/helpers/docker-chrome.desktop && \
+    echo "Name=DockerChrome" >> /usr/share/xfce4/helpers/docker-chrome.desktop
 
 # 3. Set the custom helper as the global default browser
 RUN mkdir -p /etc/xdg/xfce4 && \
-    printf "[Configuration]\nWebBrowser=docker-chrome\n" > /etc/xdg/xfce4/helpers.rc
+    echo "[Configuration]" > /etc/xdg/xfce4/helpers.rc && \
+    echo "WebBrowser=docker-chrome" >> /etc/xdg/xfce4/helpers.rc
+
+# Switch back to the standard desktop user (UID 1000 is standard for these containers)
+USER 1000
